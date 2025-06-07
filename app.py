@@ -149,24 +149,62 @@ st.download_button(
     file_name="programme_summary.csv",
     mime="text/csv"
 )
-# --- Admin Access Section ---
-st.header("🔒 Admin Dashboard Access")
-
-admin_pass = st.text_input("Enter admin password", type="password", key="admin_pass_input")
-
-if admin_pass == "changeme":  # Replace with your actual admin password securely
-    st.success("Admin access granted.")
-
-    # --- Dashboard View for Admin ---
-    st.header("📊 Programme Summary Dashboard")
+# --- Submission Button ---
+if st.button("✅ Submit Programme Data"):
+    submission = {
+        "Name": name,
+        "Role": role,
+        "Programme": programme_name,
+        "Total Students": num_students,
+        "Validated Hours per Student": validated_contact_hours,
+        "Total Delivery Hours": total_delivery_hours,
+        "Repetition Factor": repetition_factor if validated_contact_hours > 0 else "",
+        "Staff Effort (with contingency)": estimated_staff_effort if validated_contact_hours > 0 else "",
+        "Adjusted Available Hours (before unreplaced deductions)": adjusted_net_hours,
+        "Unreplaced Illness/Absence Hours": illness_hours,
+        "Unreplaced RKE/ExecEd Hours": rke_exec_hours,
+        "Unreplaced Other Hours": other_unreplaced_hours,
+        "Total Additional Deductions": total_unreplaced_hours,
+        "Final Adjusted Teaching Hours": final_available_hours,
+        "Nominal Student-to-FTE Ratio": nominal_ratio if validated_contact_hours > 0 else "",
+        "Adjusted Student-to-FTE Ratio": adjusted_ratio if validated_contact_hours > 0 else "",
+        "Illness Notes": illness_notes,
+        "RKE/Exec Notes": rke_exec_notes,
+        "Other Notes": other_unreplaced_notes
+    }
 
     csv_path = "programme_data_submissions.csv"
 
-    if os.path.exists(csv_path):
-        df = pd.read_csv(csv_path)
+    try:
+        new_df = pd.DataFrame([submission])
+        if os.path.exists(csv_path):
+            existing_df = pd.read_csv(csv_path)
+            updated_df = pd.concat([existing_df, new_df], ignore_index=True)
+        else:
+            updated_df = new_df
 
-        # Filter option
-        programmes = df["Programme"].unique()
+        updated_df.to_csv(csv_path, index=False)
+        st.success("✅ Submission saved successfully.")
+    except Exception as e:
+        st.error(f"⚠️ Error saving submission: {e}")
+# --- Admin Access Section ---
+st.header("🔒 Admin Dashboard Access")
+admin_pass = st.text_input("Enter admin password", type="password", key="admin_pass_input")
+
+# Load the secure password from secrets.toml
+admin_password = st.secrets["admin"]["password"]
+
+if admin_pass == admin_password:
+    st.success("Admin access granted.")
+    
+    # --- Dashboard View for Admin ---
+    st.header("📊 Programme Summary Dashboard")
+
+    if os.path.exists("programme_data_submissions.csv"):
+        df = pd.read_csv("programme_data_submissions.csv")
+
+        # Clean programme list
+        programmes = df["Programme"].dropna().unique().tolist()
         selected_programmes = st.multiselect("Filter by Programme", programmes, default=programmes)
 
         filtered_df = df[df["Programme"].isin(selected_programmes)]
@@ -191,6 +229,6 @@ if admin_pass == "changeme":  # Replace with your actual admin password securely
         st.bar_chart(chart_data)
     else:
         st.info("No submission data found. Submit at least one entry to generate a dashboard.")
-
 elif admin_pass:
     st.error("Incorrect password.")
+    
